@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+*.conda/
+
+# Large/generated simulation files
+results/data/*.npy
+results/data/*.npz
+results/data/*.csv
+results/data/*.h5
+results/data/*.pkl
+
+# Figures can be included if useful, but ignore temporary ones
+results/figures/temp_*
+results/figures/*.tmp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
