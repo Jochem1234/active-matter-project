@@ -81,12 +81,12 @@ from time import perf_counter
 #from pathlib import Path
 
 from matplotlib.animation import FuncAnimation
-from IPython.display import HTML
+#from IPython.display import HTML
 from matplotlib.patches import Circle
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 
-from matplotlib.animation import PillowWriter
+#from matplotlib.animation import PillowWriter
 
 from numba import njit
 
@@ -100,6 +100,8 @@ plt.rcParams["axes.grid"] = False
 
 @dataclass
 class ModelParameters:
+    # Contains all the parameters for a simulation
+    
     N: int = 400
     dt: float = 0.1
     steps: int = 1_000_000
@@ -110,7 +112,7 @@ class ModelParameters:
 
     # Parameters
     lambda_s: float = 0.07
-    lambda_a: float = 0.30
+    lambda_a: float = 0.300
     lambda_n: float = 0.03
     lambda_Fin: float = 0.3
     lambda_Tin: float = 3.0
@@ -142,7 +144,15 @@ class ModelParameters:
 # ## A.3 Initialization and misc. functions
 
 def initialize_particles(params: ModelParameters):
-    """Create the initial particle positions, angles and radii."""
+    '''
+    Creates the initial particle positions, angles and radii from given 
+    parameters.
+    
+    Argument: a ModelParameters class.
+    
+    Returns: 3 arrays of positions, angles and radii.
+    '''
+    
     rng = np.random.default_rng(params.seed)
     N = params.N
 
@@ -173,28 +183,15 @@ def initialize_particles(params: ModelParameters):
 
 
 def unit_vectors(angles):
+    '''
+    Returns unit vectors of angles.
+    
+    Argument: array of angles.
+    
+    Returns: array of vectors.
+
+    '''
     return np.column_stack((np.cos(angles), np.sin(angles)))
-
-
-def final_boundary_information_python(positions, cutoff):
-    """Simple Python version used only for plotting the final snapshot."""
-    N = len(positions)
-    is_boundary = np.zeros(N, dtype=bool)
-
-    for i in range(N):
-        rel = positions - positions[i]
-        dist = np.linalg.norm(rel, axis=1)
-        mask = (dist < cutoff) & (dist > 1e-12)
-
-        if not np.any(mask):
-            is_boundary[i] = True
-            continue
-
-        angles = np.sort(np.mod(np.arctan2(rel[mask, 1], rel[mask, 0]), 2 * np.pi))
-        gaps = np.diff(np.concatenate([angles, [angles[0] + 2 * np.pi]]))
-        is_boundary[i] = gaps.max() >= np.pi
-
-    return is_boundary
 
 #%%
 
@@ -228,6 +225,14 @@ def _run_simulation_core(
     neighbor_cutoff,
     seed
 ):
+    '''
+    Runs the simulation completely. Due to the use of NUMBA this function 
+    uses and returns individual variables.
+    
+    Arguments: all the parameters of the simulation as individual arguments.
+    
+    Returns: all relevant data as individual variables.
+    '''
 
     np.random.seed(seed)
 
@@ -441,6 +446,15 @@ def _run_simulation(
     radii,
     params
 ):
+    '''
+    Accepts the parameters as class, runs the simulation function, and puts
+    the results in a dictionary.
+    
+    Arguments: arrays of the positions, angles and radii
+    and the ModelParameters class.
+    
+    Returns: a dictionary containing the data of the simulation.
+    '''
     start = perf_counter()
 
     (
@@ -498,7 +512,13 @@ def _run_simulation(
 # ## A.5 Time Estimation function
 
 def estimate_runtime_from_benchmark(params: ModelParameters, benchmark_steps=20_000):
-    """Run a short benchmark and estimate the runtime for params.steps."""
+    '''
+    Run a short benchmark and estimate the runtime for given parameters.
+    
+    Arguments: a ModelParameters class, and an integer.
+    
+    Returns: a dictionary of simulation data and an integer.
+    '''
     bench_params = replace(params, steps=benchmark_steps)
     
     positions, angles, radii = initialize_particles(bench_params)
@@ -517,7 +537,14 @@ def estimate_runtime_from_benchmark(params: ModelParameters, benchmark_steps=20_
 
 # ## A.6 Analysis functions
 
-def summarize_late_time(summary, transient_fraction=0.5): # misschien dit analysis noemen?
+def summarize_late_time(summary, transient_fraction=0.5):
+    '''
+    Performs analysis on the data of a simulation.
+    
+    Arguments: a dictionary of simualtion data.
+    
+    Returns: a dictionary of simualtion statistics.
+    '''
     start = int(transient_fraction * len(summary["time"]))
     dt_saved = np.diff(summary["time"]).mean() if len(summary["time"]) > 1 else np.nan
     com = summary["center_of_mass"]
@@ -542,12 +569,20 @@ def summarize_late_time(summary, transient_fraction=0.5): # misschien dit analys
     }
 
 def classify_state(summary, transient_fraction=0.5):
+    '''
+    Classifies the state (or 'phase') of a simulation.
+    
+    Argument: a dictionary of simulation data, and a float.
+    
+    Returns: the same dictionary with an entry appended.
+    '''
+
     stats = summarize_late_time(summary, transient_fraction=transient_fraction)
 
     mean_phi = stats["mean_phi"]
     std_phi = stats["std_phi"]
     mean_angular = stats["mean_angular"]
-    mean_com_speed = stats["mean_com_speed"]
+    #mean_com_speed = stats["mean_com_speed"]
     mean_rms_radius = stats["mean_rms_radius"]
 
     if mean_rms_radius > 100:
@@ -572,6 +607,14 @@ def classify_state(summary, transient_fraction=0.5):
 # ## A.7 Plot summary functions
 
 def plot_summary(summary, title="", late_fraction=0.5, bins=40):
+    '''
+    Prints the statistics and plots relevant data of a simulation.
+    
+    Arguments: a dictionary of simulation statistics, a title string, a float
+    and an integer.
+    
+    Returns: nothing.
+    '''
     print(classify_state(summary))
     time = np.asarray(summary["time"])
     phi = np.asarray(summary["phi"])
@@ -646,6 +689,13 @@ def plot_summary(summary, title="", late_fraction=0.5, bins=40):
 # ## A.8 Name, save and load functions
 
 def make_filename(params):
+    '''
+    Makes a string for a filename with given parameters.
+    
+    Argument: a ModelParameters class.
+    
+    Returns: a string.
+    '''
     return (
         f"N{params.N}"
         f"_ls{params.lambda_s:.4f}"
@@ -657,10 +707,14 @@ def make_filename(params):
         ".pkl"
     )
 
-def run_and_save(
-    params,
-    output_dir="saved_sims"
-):
+def run_and_save(params, output_dir="saved_sims"):
+    '''
+    Runs a simulation, puts it in a dictionary, and saves it to a file.
+    
+    Arguments: a ModelParameters class, a string.
+    
+    Returns: nothing.
+    '''
     os.makedirs(output_dir, exist_ok=True)
     positions, angles, radii = initialize_particles(params)
     summary = _run_simulation(positions, angles, radii, params)
@@ -684,13 +738,10 @@ def load_saved_sims(output_dir="saved_sims", string_requirement=None, show_which
     """
     Loads all .pkl simulations in output_dir.
 
-    Returns
-    -------
-    sims : dict
-        sims[filename] = {
-            "params": params,
-            "summary": summary,
-        }
+    Arguments: a string for the file directory, a string for a search filter,
+    a bool.
+    
+    Returns: a dictionary with the data of simulations.
     """
 
     sims = {}
